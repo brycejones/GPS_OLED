@@ -32,7 +32,7 @@ Required hardware:
 *********************************************************************/
 
 #include <Wire.h>
-#include <Adafruit_GPS.h>
+#include <Adafruit_GPSmod.h>
 #include <SoftwareSerial.h>
 #include <Adafruit_GFX.h>          /* OLED/LCD Gisplay grapshics library */
 #include <Adafruit_SSD1306.h>      /* OLED Graphics display              */
@@ -73,27 +73,17 @@ Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
     (You can change the software serial pin numbers however
      make sure the following matches your wiring)
 */
-SoftwareSerial mySerial(8, 7);    // Communicates with GPS
+// SoftwareSerial mySerial(8, 7);    // Communicates with GPS
 
 
-//================= Set Up GPS Recevier ======================                  
-#define PMTK_SET_NMEA_UPDATE_1HZ  "$PMTK220,1000*1F"
-#define PMTK_SET_NMEA_UPDATE_5HZ  "$PMTK220,200*2C"
-#define PMTK_SET_NMEA_UPDATE_10HZ "$PMTK220,100*2F"
+//   Connect the GPS TX (transmit) pin to Arduino RX1 (Digital 0)
+//   Connect the GPS RX (receive) pin to matching TX1 (Digital 1)
+Adafruit_GPS GPS(&Serial1);
+HardwareSerial mySerial = Serial1;
+#define GPSECHO false
+int led = 3;     // GPS fix indicator LED
 
-// turn on only the second sentence (GPRMC)
-#define PMTK_SET_NMEA_OUTPUT_RMCONLY "$PMTK314,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*29"
-// turn on GPRMC and GGA
-#define PMTK_SET_NMEA_OUTPUT_RMCGGA "$PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
-// turn on ALL THE DATA
-#define PMTK_SET_NMEA_OUTPUT_ALLDATA "$PMTK314,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
-// turn off output
-#define PMTK_SET_NMEA_OUTPUT_OFF "$PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
-
-#define PMTK_Q_RELEASE "$PMTK605*31"
-//================ End Setting Up GPS Echo =====================                  
-
-
+// Set up the OLED Display
 #if (SSD1306_LCDHEIGHT != 64)     // check to see if correct display provided
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
@@ -103,18 +93,11 @@ void setup()  {
 
   Serial.begin(115200);  // this hdwe serial interface commuicates with PC via USB
   mySerial.begin(9600); // this sftwe serial interface communicates with the GPS receiver
-  delay(2000);
-  Serial.println("Get version!");
+  delay(15000);
+  Serial.println("GPS hardware serial sketch for Arduino MICRO");
 
-  mySerial.println(PMTK_Q_RELEASE);
   
-  // you can send various commands to get it started
-  //mySerial.println(PMTK_SET_NMEA_OUTPUT_RMCGGA);
-  mySerial.println(PMTK_SET_NMEA_OUTPUT_RMCONLY);
-
-  mySerial.println(PMTK_SET_NMEA_UPDATE_1HZ);
- 
-   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
+  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
   display.begin(SSD1306_SWITCHCAPVCC);
   // init done
   
@@ -129,35 +112,130 @@ void setup()  {
   display.display();
   delay(2000);
   display.clearDisplay();
-   
+ 
+ // 9600 NMEA is the default baud rate for Adafruit MTK GPS's- some use 4800
+  GPS.begin(9600);
+  
+  // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  // uncomment this line to turn on only the "minimum recommended" data
+  //GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
+  // For parsing data, we don't suggest using anything but either RMC only or RMC+GGA since
+  // the parser doesn't care about other sentences at this time
+  
+  // Set the update rate
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);   // 1 Hz update rate
+  // For the parsing code to work nicely and have time to sort thru the data, and
+  // print it out we don't suggest using anything higher than 1 Hz
+
+
+  // ************************************************************
+  GPS.sendCommand(PGCMD_ANTENNA);  // required to get PGTOP working
+  // Commnets: brycej date: 02/18/2014
+  // I think this is incorrect and needs to be updated in the header files
+  // FORMAT: $PGTOP,11,value*checksum
+  //    1. Active Antenna Shorted
+  //    2. Using Internal Antenna $PGTOP,11,2*6E
+  //    3. Using Active Antenna   $PGTOP,11,3*6F
+  //  
+  //GPS.sendCommand(PGTOP_ANTENNA);
+
+  
+  delay(1000);
+  // Ask for firmware version
+  mySerial.println(PMTK_Q_RELEASE); 
 }
 
+uint32_t timer = millis();
 
-void loop() {
+void loop()                     // run over and over again
+{
+  char c = GPS.read();
+  // if you want to debug, this is a good time to do it!
+  if ((c) && (GPSECHO))
+    Serial.write(c); 
   
-  display.setCursor(0,0);
-  display.println("\nIn GPS Loop!");
-  display.display();
-  delay(2000);
-  display.clearDisplay();
+  // if a sentence is received, we can check the checksum, parse it...
+  if (GPS.newNMEAreceived()) {
+    // a tricky thing here is if we print the NMEA sentence, or data
+    // we end up not listening and catching other sentences! 
+    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
+    //Serial.println(GPS.lastNMEA());   // this also sets the newNMEAreceived() flag to false
   
-  if (Serial.available()) {
-   char c = Serial.read();
-   Serial.write(c);
-   mySerial.write(c);
+    if (!GPS.parse(GPS.lastNMEA()))   // this also sets the newNMEAreceived() flag to false
+      return;  // we can fail to parse a sentence in which case we should just wait for another
   }
-  if (mySerial.available()) {
-    char c = mySerial.read();
-    Serial.write(c);
-    display.println(c);   //added to send to OLED
+
+  // if millis() or timer wraps around, we'll just reset it
+  if (timer > millis())  timer = millis();
+
+  // approximately every 2 seconds or so, print out the current stats
+  if (millis() - timer > 2000) { 
+    timer = millis(); // reset the timer
+    
+ // Visual indicator for GPS fix, light LED
+   if (GPS.fixquality>0 ){
+      digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
+      //delay(1000);               // wait for a second
+    } 
+    else {
+       digitalWrite(led, LOW); 
+    }
+    
+    display.clearDisplay();
+    display.setCursor(0,0);   
+    display.print("Time: ");
+    display.print(GPS.hour, DEC); display.print(':'); 
+    display.print(GPS.minute, DEC); display.print(':');
+    display.print(GPS.seconds, DEC); display.print('.');
+    display.print(GPS.milliseconds);    
     display.display();
+    delay(2000);
+ 
     
     
-    
-  } 
+    Serial.print("\nTime: ");
+    Serial.print(GPS.hour, DEC); Serial.print(':');
+    Serial.print(GPS.minute, DEC); Serial.print(':');
+    Serial.print(GPS.seconds, DEC); Serial.print('.');
+    Serial.println(GPS.milliseconds);
+    Serial.print("Date: ");
+    Serial.print(GPS.month, DEC); Serial.print('/');
+    Serial.print(GPS.day, DEC); Serial.print("/20");
+    Serial.println(GPS.year, DEC);
+    Serial.print("Fix: "); Serial.print((int)GPS.fix);
+    Serial.print(" quality: "); Serial.println((int)GPS.fixquality); 
+    if (GPS.fix) {
+      Serial.print("Location: ");
+      Serial.print(GPS.latitude, 4); Serial.print(GPS.lat);
+      Serial.print(", "); 
+      Serial.print(GPS.longitude, 4); Serial.println(GPS.lon);
+      
+      //Serial.print("Speed (knots): "); Serial.println(GPS.speed);
+      Serial.print("Speed (mph): "); Serial.println(GPS.speed * 1.15078);  // Speed in miles per hour
+      Serial.print("Angle: "); Serial.println(GPS.angle);
+      Serial.print("Altitude: "); Serial.println(GPS.altitude);
+      Serial.print("Satellites: "); Serial.println((int)GPS.satellites);
+      Serial.print("Antenna Status: "); Serial.print(GPS.antennastatus, DEC);    //printing antenna status
   
+      switch ( GPS.antennastatus ) {
+           case 1:
+              Serial.print(" -Antenna Shorted!!\n");        // Fault with Antenna
+           break;
+           case 2:
+              Serial.print(" -Using Internal Antenna\n");   // GPS using internal ceramic antenna
+           break;
+           case 3:
+              Serial.print(" -Using Active Antenna\n");     // GPS using active antenna
+           break;
+           
+           default:
+           // Get out of here
+           break;
+           }
+  
+      Serial.print("\n");
+      
+    }
+  }
 }
-
-
-
-
