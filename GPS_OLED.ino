@@ -67,16 +67,16 @@ Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
     GPS Software Serial GPS Connections
     ===============================
     Connect GPS Power pin to 5V
-    Connect GPS Ground pin to ground
+    Connect GPS Ground pin to Ground
     Connect GPS TX (transmit) pin to Digital 8
     Connect GPS RX (receive) pin to Digital 7
     (You can change the software serial pin numbers however
-     make sure following matches your wiring)
+     make sure the following matches your wiring)
 */
-SoftwareSerial mySerial(8, 7);
+SoftwareSerial mySerial(8, 7);    // Communicates with GPS
 
 
-/*             Set Up GPS Recevier                  */
+//================= Set Up GPS Recevier ======================                  
 #define PMTK_SET_NMEA_UPDATE_1HZ  "$PMTK220,1000*1F"
 #define PMTK_SET_NMEA_UPDATE_5HZ  "$PMTK220,200*2C"
 #define PMTK_SET_NMEA_UPDATE_10HZ "$PMTK220,100*2F"
@@ -91,35 +91,40 @@ SoftwareSerial mySerial(8, 7);
 #define PMTK_SET_NMEA_OUTPUT_OFF "$PMTK314,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0*28"
 
 #define PMTK_Q_RELEASE "$PMTK605*31"
+//================ End Setting Up GPS Echo =====================                  
 
-/*          End Setting Up GPS Echo                */  
 
-#if (SSD1306_LCDHEIGHT != 64)
+#if (SSD1306_LCDHEIGHT != 64)     // check to see if correct display provided
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
 void setup()  {
-  while (!Serial); // wait for Leonardo/ Micro serial port to be ready
+  //while (!Serial); // wait for Leonardo/ Micro serial port to be ready
 
-  Serial.begin(57600); // this baud rate doesn't actually matter!
-  mySerial.begin(9600);
+  Serial.begin(115200);  // this hdwe serial interface commuicates with PC via USB
+  mySerial.begin(9600); // this sftwe serial interface communicates with the GPS receiver
   delay(2000);
   Serial.println("Get version!");
+
   mySerial.println(PMTK_Q_RELEASE);
   
   // you can send various commands to get it started
   //mySerial.println(PMTK_SET_NMEA_OUTPUT_RMCGGA);
-  mySerial.println(PMTK_SET_NMEA_OUTPUT_ALLDATA);
+  mySerial.println(PMTK_SET_NMEA_OUTPUT_RMCONLY);
 
   mySerial.println(PMTK_SET_NMEA_UPDATE_1HZ);
  
    // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
   display.begin(SSD1306_SWITCHCAPVCC);
   // init done
-    display.clearDisplay();   // clears the screen and buffer
+  
+  //display.clearDisplay();   // clears the screen and buffer
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
+  display.display();
+  display.clearDisplay();
+  delay(2000);
   display.println("\nHello GPS");
   display.display();
   delay(2000);
@@ -129,7 +134,13 @@ void setup()  {
 
 
 void loop() {
-
+  
+  display.setCursor(0,0);
+  display.println("\nIn GPS Loop!");
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+  
   if (Serial.available()) {
    char c = Serial.read();
    Serial.write(c);
@@ -138,6 +149,11 @@ void loop() {
   if (mySerial.available()) {
     char c = mySerial.read();
     Serial.write(c);
+    display.println(c);   //added to send to OLED
+    display.display();
+    
+    
+    
   } 
   
 }
