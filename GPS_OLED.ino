@@ -73,14 +73,30 @@ Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
     (You can change the software serial pin numbers however
      make sure the following matches your wiring)
 */
-// SoftwareSerial mySerial(8, 7);    // Communicates with GPS
 
 
+// If using software serial (sketch example default):
+//   Connect the GPS TX (transmit) pin to Digital 8
+//   Connect the GPS RX (receive) pin to Digital 7
+// If using hardware serial:
 //   Connect the GPS TX (transmit) pin to Arduino RX1 (Digital 0)
 //   Connect the GPS RX (receive) pin to matching TX1 (Digital 1)
+
+// If using software serial, keep these lines enabled
+// (you can change the pin numbers to match your wiring):
+//SoftwareSerial mySerial(6, 5);    //[GPS TX,GPS RX]
+//Adafruit_GPS GPS(&mySerial);
+
+// If using hardware serial, comment
+// out the above two lines and enable these two lines instead:
 Adafruit_GPS GPS(&Serial1);
 HardwareSerial mySerial = Serial1;
+
+// Set GPSECHO to 'false' to turn off echoing the GPS data to the Serial console
+// Set to 'true' if you want to debug and listen to the raw GPS sentences
+//#define GPSECHO  true
 #define GPSECHO false
+
 int led = 3;     // GPS fix indicator LED
 
 // Set up the OLED Display
@@ -88,12 +104,21 @@ int led = 3;     // GPS fix indicator LED
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
-void setup()  {
+// this keeps track of whether we're using the interrupt
+// off by default!
+boolean usingInterrupt = true;
+void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
+
+int count = 1;  // loop counter to check GPS query
+
+void setup()  
+{
   //while (!Serial); // wait for Leonardo/ Micro serial port to be ready
 
   Serial.begin(115200);  // this hdwe serial interface commuicates with PC via USB
-  mySerial.begin(9600); // this sftwe serial interface communicates with the GPS receiver
   delay(15000);
+  //mySerial.begin(9600); // this sftwe serial interface communicates with the GPS receiver
+  //delay(15000);
   Serial.println("GPS hardware serial sketch for Arduino MICRO");
 
   
@@ -144,17 +169,59 @@ void setup()  {
   delay(1000);
   // Ask for firmware version
   mySerial.println(PMTK_Q_RELEASE); 
+
+
+  //useInterrupt(false);
+  //delay(1000);
+
+
 }
+
+
+// Interrupt is called once a millisecond, looks for any new GPS data, and stores it
+SIGNAL(TIMER0_COMPA_vect) {
+  char c = GPS.read();
+  // if you want to debug, this is a good time to do it!
+#ifdef UDR0
+  if (GPSECHO)
+    if (c) UDR0 = c;  
+    // writing direct to UDR0 is much much faster than Serial.print 
+    // but only one character can be written at a time. 
+#endif
+}
+
+void useInterrupt(boolean v) {
+  if (v) {
+    // Timer0 is already used for millis() - we'll just interrupt somewhere
+    // in the middle and call the "Compare A" function above
+    OCR0A = 0xAF;
+    TIMSK0 |= _BV(OCIE0A);
+    usingInterrupt = true;
+  } else {
+    // do not call the interrupt function COMPA anymore
+    TIMSK0 &= ~_BV(OCIE0A);
+    usingInterrupt = false;
+  }
+}
+
+
 
 uint32_t timer = millis();
 
 void loop()                     // run over and over again
 {
-  char c = GPS.read();
-  // if you want to debug, this is a good time to do it!
-  if ((c) && (GPSECHO))
-    Serial.write(c); 
-  
+ 
+  // in case you are not using the interrupt above, you'll
+  // need to 'hand query' the GPS, not suggested :(
+  if (! usingInterrupt) {
+    // read data from the GPS in the 'main loop'
+    char c = GPS.read();
+    // if you want to debug, this is a good time to do it!
+    if (GPSECHO)
+      if (c) Serial.print(c);
+ 
+  }
+ 
   // if a sentence is received, we can check the checksum, parse it...
   if (GPS.newNMEAreceived()) {
     // a tricky thing here is if we print the NMEA sentence, or data
@@ -188,12 +255,20 @@ void loop()                     // run over and over again
     display.print(GPS.hour, DEC); display.print(':'); 
     display.print(GPS.minute, DEC); display.print(':');
     display.print(GPS.seconds, DEC); display.print('.');
-    display.print(GPS.milliseconds);    
+    display.print(GPS.milliseconds);
+    display.print("\nPass: ");; display.print(count);    
+    if (GPS.fix) { 
+         display.print("\nFIX YES");
+    }
+    else {   
+         display.print("\nFIX NO!!!");
+    }     
     display.display();
     delay(2000);
+    count = (count + 1) ;
  
     
-    
+/*    
     Serial.print("\nTime: ");
     Serial.print(GPS.hour, DEC); Serial.print(':');
     Serial.print(GPS.minute, DEC); Serial.print(':');
@@ -237,5 +312,7 @@ void loop()                     // run over and over again
       Serial.print("\n");
       
     }
+*/    
+    
   }
 }
