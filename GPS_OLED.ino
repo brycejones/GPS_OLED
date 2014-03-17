@@ -128,7 +128,7 @@ void GPS_Setup()
 
   // Request updates on antenna status, comment out to keep quiet
   // ************************************************************
-  //GPS.sendCommand(PGCMD_ANTENNA);  // required to get PGTOP working
+  GPS.sendCommand(PGCMD_ANTENNA);  // required to get PGTOP working
   // Commnets: brycej date: 02/18/2014
   // I think this is incorrect and needs to be updated in the header files
   // FORMAT: $PGTOP,11,value*checksum
@@ -136,7 +136,7 @@ void GPS_Setup()
   //    2. Using Internal Antenna $PGTOP,11,2*6E
   //    3. Using Active Antenna   $PGTOP,11,3*6F
   //  
-  GPS.sendCommand(PGTOP_ANTENNA); 
+  //GPS.sendCommand(PGTOP_ANTENNA); 
   delay(1000);
   
   // Ask for firmware version
