@@ -30,7 +30,7 @@ Date: 12 MAR 2014
 Required hardware:
   -Arduino (I used Micro)
   -Adafruit Ultimate GPS v3
-  -Adafruit SSD1306 128x64 OLED display
+  -Adafruit SSD1306 128x64 OLED display and SPI interface
 
 Wiring:
 
@@ -38,6 +38,8 @@ Wiring:
   ============
    Connect GPS power to 5V
    Connect GPS ground to ground
+   
+   NOTE: I found this wiring to work using SoftwareSerial --but don't know why!
    Connect the GPS TX (transmit) pin to Arduino RX1 (Digital 0)
    Connect the GPS RX (receive) pin to matching TX1 (Digital 1)   
   
@@ -53,14 +55,15 @@ Wiring:
    Connect OLED_GROUND to common ground
 
 
-Special Notes: This sketch is very close to exceeding the OLED buffer
-and when you do, then the serial data from the GPS will not be received
-and the symptom is displaying NO GPS Fix!! Frustrating to debug.
+Special Notes: This sketch functions on the Arduino Micro however I am 
+unclear why the SoftareSerial (3,2) only functions with the GPS serial connections
+attached to the Micro pins 0/RX and 1/TX. If you power the Micro from a PC USB
+port leave the Serial.begin commented out.
 
-This sketch uses a modified Adafruit's GPS library to allow reading the
-status of the GPS antenna to determine if the GPS is using the onboard ceramic
-antenna, the external active antenna, or if there is an antenna short creating
-a fault. 
+This sketch uses a modified Adafruit's GPS library to providing GPS.antennastatus
+methods to report status of the GPS antenna to determininge if the GPS is using the
+onboard ceramic antenna, the external active antenna, or if there is an antenna short
+creating a fault. 
 
 *********************************************************************/
 
@@ -137,10 +140,11 @@ void GPS_Setup()
   //    3. Using Active Antenna   $PGTOP,11,3*6F
   //  
   //GPS.sendCommand(PGTOP_ANTENNA); 
-  delay(1000);
+  //delay(500);
   
   // Ask for firmware version
-  mySerial.println(PMTK_Q_RELEASE);
+  //mySerial.println(PMTK_Q_RELEASE);
+  //delay(1000);
 }
 
 
@@ -177,8 +181,8 @@ void setup()
   //
   GPS_Setup();
   
-  //
-  Serial.begin(115200);
+  // Disable Serial.begin to prevent serial conflict if powering Arduino Micro from PC
+  //Serial.begin(115200);
  
   //
   OLED.clearDisplay(); 
@@ -197,7 +201,7 @@ void loop()
   if (millis() - timer > 1000) 
   { 
     //
-    Serial.print(".");
+    //Serial.print(".");
     
     
     // Reset the timer
