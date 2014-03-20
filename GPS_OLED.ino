@@ -1,7 +1,8 @@
 /*********************************************************************
-This sketch interfaces a 128x64 Monochrome OLED based on SSD1306 drivers
-to interface Adafruit's Ultimate GPS and displaying location information
-to the tiny OLED display.
+This Arduino Micro sketch interfaces a 128x64 Monochrome OLED based on SSD1306
+drivers to interface Adafruit's Ultimate GPS and displaying location information
+to the tiny OLED display.  This sketch uses hardware serial (Serial1) on the 
+Arduino Micro. Software serial can be implemented by uncommenting the below code.
 
   Pick up an OLED display in the adafruit shop!
   ------> http://www.adafruit.com/category/63_98
@@ -9,13 +10,9 @@ to the tiny OLED display.
   Pick up the high performing Ultimate v3 GPS in the adafruit shop!
   ------> http://www.adafruit.com/products/746
 
-This example is for a 128x64 size display using SPI to communicate.
 Adafruit invests time and resources providing this open source code, 
 please support Adafruit and open-source hardware by purchasing 
 products from Adafruit!
-
-BSD license, check license.txt for more information
-All text above, and the splash screen must be included in any redistribution
 
 Author: Bryce Jones
 Date: 12 MAR 2014
@@ -25,6 +22,7 @@ Date: 12 MAR 2014
    2014/MAR/12  - initial sketch
    2014/MAR/15  - not getting GPS fix
    2014/MAR/16  - found GPS fix issue memory contraint
+   2014/MAR/20  - moved to hardware serial
 
 
 Required hardware:
@@ -39,10 +37,14 @@ Wiring:
    Connect GPS power to 5V
    Connect GPS ground to ground
    
-   NOTE: I found this wiring to work using SoftwareSerial --but don't know why!
+   NOTE: 
+   This sketch uses Software serial pins 7 and 8 on the Micro
+    (Micro must use pins 7,8,9,10,11 or 13 for software serial!)
+   
+   Hardware Serial on arduino Micro
    Connect the GPS TX (transmit) pin to Arduino RX1 (Digital 0)
    Connect the GPS RX (receive) pin to matching TX1 (Digital 1)   
-  
+   
 
    Connections for the Adafruit 128x64 SPI OLED
    ===========
@@ -55,10 +57,7 @@ Wiring:
    Connect OLED_GROUND to common ground
 
 
-Special Notes: This sketch functions on the Arduino Micro however I am 
-unclear why the SoftareSerial (3,2) only functions with the GPS serial connections
-attached to the Micro pins 0/RX and 1/TX. If you power the Micro from a PC USB
-port leave the Serial.begin commented out.
+Special Notes:
 
 This sketch uses a modified Adafruit's GPS library to providing GPS.antennastatus
 methods to report status of the GPS antenna to determininge if the GPS is using the
@@ -81,10 +80,11 @@ void OLED_Setup();
 
 
 // mySerial Object
-SoftwareSerial mySerial(3, 2);
+//SoftwareSerial mySerial(8, 7); // Leonardo requires use of pins 7,8,9,10 or 11 
 
 // GPS Object
-Adafruit_GPS GPS(&Serial1);
+Adafruit_GPS GPS(&Serial1);  // GPS hardware serial on Micro pins 0/RX and 1/TX
+//Adafruit_GPS GPS(&mySerial);   // GPS Software serial
 
 // OLED Object
 #define OLED_DC 11
